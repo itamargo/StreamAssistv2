@@ -22,12 +22,20 @@ run:
 
     player_entity_id:
       name: Player Entity
-      description: Entity for playing TTS
+      description: Entity for playing TTS (standard media player)
       selector:
         entity:
           domain: media_player
           supported_features:
             - media_player.MediaPlayerEntityFeature.PLAY_MEDIA
+
+    alexa_tts_entity:
+      name: Alexa TTS Entity
+      description: Alexa device for TTS output (uses notify service, skips Piper)
+      selector:
+        entity:
+          domain: media_player
+          integration: alexa_media
 
     stt_start_media:
       name: STT start media

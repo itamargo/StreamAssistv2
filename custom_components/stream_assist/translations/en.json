@@ -20,6 +20,7 @@
           "stream_source": "Stream URL (RTSP/RTMP/HTTP)",
           "camera_entity_id": "Camera Entity",
           "player_entity_id": "Player Entity",
+          "alexa_tts_entity": "Alexa TTS Entity (skips Piper)",
           "stt_start_media": "STT start media",
           "pipeline_id": "Pipeline (Settings > Voice Assistant)"
         }
