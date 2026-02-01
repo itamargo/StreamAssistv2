@@ -64,6 +64,14 @@ class OptionsFlowHandler(OptionsFlow):
             and v.supported_features & MediaPlayerEntityFeature.PLAY_MEDIA
         ]
 
+        # Alexa devices for TTS output (via notify service)
+        alexa_players = [
+            k
+            for k, v in reg.entities.items()
+            if v.domain == "media_player"
+            and "alexa_media" in (v.platform or "")
+        ]
+
         pipelines = {
             p.id: p.name for p in assist_pipeline.async_get_pipelines(self.hass)
         }
@@ -77,6 +85,7 @@ class OptionsFlowHandler(OptionsFlow):
                     vol.Exclusive("stream_source", "url"): str,
                     vol.Exclusive("camera_entity_id", "url"): vol.In(cameras),
                     vol.Optional("player_entity_id"): cv.multi_select(players),
+                    vol.Optional("alexa_tts_entity"): vol.In(alexa_players),
                     vol.Optional("stt_start_media"): str,
                     vol.Optional("pipeline_id"): vol.In(pipelines),
                 },
