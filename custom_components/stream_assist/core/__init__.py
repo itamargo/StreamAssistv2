@@ -19,6 +19,7 @@ from homeassistant.components.assist_pipeline import (
 from homeassistant.components.camera import Camera
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, Context
+from homeassistant.helpers import chat_session
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import Entity, DeviceInfo
 from homeassistant.helpers.entity_component import EntityComponent
@@ -161,41 +162,42 @@ async def assist_run(
         audio_settings=new(AudioSettings, assist.get("audio_settings")),
     )
 
-    # 3. Setup Pipeline Input
-    # Build PipelineInput kwargs, filtering out unsupported params
-    pipeline_input_kwargs = {
-        "run": pipeline_run,
-        "stt_metadata": stt.SpeechMetadata(
-            language="",  # set in async_pipeline_from_audio_stream
-            format=stt.AudioFormats.WAV,
-            codec=stt.AudioCodecs.PCM,
-            bit_rate=stt.AudioBitRates.BITRATE_16,
-            sample_rate=stt.AudioSampleRates.SAMPLERATE_16000,
-            channel=stt.AudioChannels.CHANNEL_MONO,
-        ),
-        "stt_stream": stt_stream,
-        "intent_input": assist.get("intent_input"),
-        "tts_input": assist.get("tts_input"),
-        "device_id": assist.get("device_id"),
-    }
-    pipeline_input = PipelineInput(**pipeline_input_kwargs)
+    # 3. Setup Pipeline Input with chat session (required in HA 2026.1+)
+    conversation_id = assist.get("conversation_id")
+    with chat_session.async_get_chat_session(hass, conversation_id) as session:
+        pipeline_input = PipelineInput(
+            run=pipeline_run,
+            session=session,
+            stt_metadata=stt.SpeechMetadata(
+                language="",  # set in async_pipeline_from_audio_stream
+                format=stt.AudioFormats.WAV,
+                codec=stt.AudioCodecs.PCM,
+                bit_rate=stt.AudioBitRates.BITRATE_16,
+                sample_rate=stt.AudioSampleRates.SAMPLERATE_16000,
+                channel=stt.AudioChannels.CHANNEL_MONO,
+            ),
+            stt_stream=stt_stream,
+            intent_input=assist.get("intent_input"),
+            tts_input=assist.get("tts_input"),
+            device_id=assist.get("device_id"),
+        )
 
-    try:
-        # 4. Validate Pipeline
-        await pipeline_input.validate()
+        try:
+            # 4. Validate Pipeline
+            await pipeline_input.validate()
 
-        # 5. Run Stream (optional)
-        if stt_stream:
-            stt_stream.start()
+            # 5. Run Stream (optional)
+            if stt_stream:
+                stt_stream.start()
 
-        # 6. Run Pipeline
-        await pipeline_input.execute()
+            # 6. Run Pipeline
+            await pipeline_input.execute()
 
-    except AttributeError:
-        pass  # 'PipelineRun' object has no attribute 'stt_provider'
-    finally:
-        if stt_stream:
-            stt_stream.stop()
+        except AttributeError:
+            pass  # 'PipelineRun' object has no attribute 'stt_provider'
+        finally:
+            if stt_stream:
+                stt_stream.stop()
 
     return events
 
