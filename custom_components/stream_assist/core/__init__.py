@@ -102,9 +102,15 @@ async def assist_run(
         else:
             raise Exception("Unknown start_stage")
 
+    # Alexa TTS: skip pipeline TTS, send text to Alexa notify service instead
+    alexa_tts_entity = data.get("alexa_tts_entity")
+
     if "end_stage" not in assist:
         # auto select end stage
-        if pipeline.tts_engine:
+        if alexa_tts_entity:
+            # Skip TTS stage - we'll use Alexa for speech
+            assist["end_stage"] = PipelineStage.INTENT
+        elif pipeline.tts_engine:
             assist["end_stage"] = PipelineStage.TTS
         else:
             assist["end_stage"] = PipelineStage.INTENT
@@ -126,6 +132,15 @@ async def assist_run(
         if event.type == PipelineEventType.STT_START:
             if player_entity_id and (media_id := data.get("stt_start_media")):
                 play_media(hass, player_entity_id, media_id, "audio")
+        elif event.type == PipelineEventType.INTENT_END:
+            # Send response to Alexa if configured
+            if alexa_tts_entity and event.data:
+                try:
+                    speech_text = event.data["intent_output"]["response"]["speech"]["plain"]["speech"]
+                    if speech_text:
+                        play_alexa_tts(hass, alexa_tts_entity, speech_text)
+                except (KeyError, TypeError) as e:
+                    _LOGGER.warning(f"Could not extract speech text for Alexa: {e}")
         elif event.type == PipelineEventType.TTS_END:
             if player_entity_id:
                 tts = event.data["tts_output"]
@@ -194,6 +209,24 @@ def play_media(hass: HomeAssistant, entity_id: str, media_id: str, media_type: s
     # hass.services.call will block Hass
     coro = hass.services.async_call("media_player", "play_media", service_data)
     hass.async_create_background_task(coro, "stream_assist_play_media")
+
+
+def play_alexa_tts(hass: HomeAssistant, entity_id: str, text: str):
+    """Send TTS text to Alexa via notify service."""
+    # entity_id is media_player.xxx, derive notify service name
+    # e.g., media_player.kitchen_echo -> notify.alexa_media_kitchen_echo
+    device_name = entity_id.replace("media_player.", "")
+    notify_service = f"alexa_media_{device_name}"
+
+    service_data = {
+        "message": text,
+        "data": {"type": "tts"},
+        "target": entity_id,
+    }
+
+    _LOGGER.debug(f"Sending to Alexa TTS ({notify_service}): {text}")
+    coro = hass.services.async_call("notify", notify_service, service_data)
+    hass.async_create_background_task(coro, "stream_assist_alexa_tts")
 
 
 def run_forever(
