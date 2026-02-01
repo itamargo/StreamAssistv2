@@ -96,7 +96,10 @@ async def assist_run(
 
     if "start_stage" not in assist:
         # auto select start stage
-        if pipeline.wake_word_entity:
+        if assist.get("intent_input"):
+            # Skip STT if intent_input is provided directly
+            assist["start_stage"] = PipelineStage.INTENT
+        elif pipeline.wake_word_entity:
             assist["start_stage"] = PipelineStage.WAKE_WORD
         elif pipeline.stt_engine:
             assist["start_stage"] = PipelineStage.STT
