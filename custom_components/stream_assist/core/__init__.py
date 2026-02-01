@@ -162,9 +162,10 @@ async def assist_run(
     )
 
     # 3. Setup Pipeline Input
-    pipeline_input = PipelineInput(
-        run=pipeline_run,
-        stt_metadata=stt.SpeechMetadata(
+    # Build PipelineInput kwargs, filtering out unsupported params
+    pipeline_input_kwargs = {
+        "run": pipeline_run,
+        "stt_metadata": stt.SpeechMetadata(
             language="",  # set in async_pipeline_from_audio_stream
             format=stt.AudioFormats.WAV,
             codec=stt.AudioCodecs.PCM,
@@ -172,12 +173,12 @@ async def assist_run(
             sample_rate=stt.AudioSampleRates.SAMPLERATE_16000,
             channel=stt.AudioChannels.CHANNEL_MONO,
         ),
-        stt_stream=stt_stream,
-        intent_input=assist.get("intent_input"),
-        tts_input=assist.get("tts_input"),
-        conversation_id=assist.get("conversation_id"),
-        device_id=assist.get("device_id"),
-    )
+        "stt_stream": stt_stream,
+        "intent_input": assist.get("intent_input"),
+        "tts_input": assist.get("tts_input"),
+        "device_id": assist.get("device_id"),
+    }
+    pipeline_input = PipelineInput(**pipeline_input_kwargs)
 
     try:
         # 4. Validate Pipeline
